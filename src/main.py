@@ -4,7 +4,7 @@ from pathlib import Path
 from cycle_detection import has_negative_cycle
 from graph import build_residual_graph
 from input_parser import read_input_data
-from max_flow import ford_fulkerson_max_flow
+from max_flow import ford_fulkerson_max_flow, min_cut_from_residual
 from min_cost_flow import min_cost_max_flow_bellman_ford, min_cost_max_flow_dijkstra
 from visualization import render_pdf_from_dot, verify_dot_labels, write_dot_file
 
@@ -38,6 +38,17 @@ def main() -> int:
     print("flot_final_par_arc (u v flow/capacity cost):")
     for record in max_flow_graph.arc_flows():
         print(f"{record.u} {record.v} {record.flow}/{record.capacity} cost={record.cost}")
+
+    reachable, cut_edges, cut_capacity = min_cut_from_residual(
+        max_flow_graph,
+        header.source,
+    )
+    print("min_cut_S=")
+    print(" ".join(map(str, sorted(reachable))))
+    print("min_cut_edges (u v capacity):")
+    for edge in cut_edges:
+        print(f"{edge.u} {edge.v} {edge.capacity}")
+    print(f"min_cut_capacity={cut_capacity}")
 
     mcmf_bf_graph = build_residual_graph(parsed)
     flow_bf, cost_bf = min_cost_max_flow_bellman_ford(

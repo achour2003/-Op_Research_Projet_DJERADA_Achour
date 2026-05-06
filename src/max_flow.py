@@ -1,4 +1,5 @@
 from collections import deque
+from dataclasses import dataclass
 
 from graph import ResidualGraph
 
@@ -94,3 +95,49 @@ def ford_fulkerson_max_flow(graph: ResidualGraph, source: int, sink: int) -> int
         max_flow += pushed_flow
 
     return max_flow
+
+
+@dataclass(frozen=True)
+class MinCutEdge:
+    u: int
+    v: int
+    capacity: int
+
+
+def min_cut_from_residual(
+    graph: ResidualGraph, source: int
+) -> tuple[set[int], list[MinCutEdge], int]:
+    """Return the min-cut (S, T) from the residual graph after max flow.
+
+    S is the set of vertices reachable from source by residual arcs with cap > 0.
+    The cut edges are original arcs u->v with u in S and v in T.
+    """
+    if not (0 <= source < graph.node_count):
+        raise ValueError(f"Source invalide: {source}")
+
+    reachable: set[int] = set()
+    queue: deque[int] = deque([source])
+    reachable.add(source)
+
+    while queue:
+        u = queue.popleft()
+        for edge in graph.adjacency[u]:
+            if edge.cap <= 0:
+                continue
+            if edge.to in reachable:
+                continue
+            reachable.add(edge.to)
+            queue.append(edge.to)
+
+    cut_edges: list[MinCutEdge] = []
+    cut_capacity = 0
+    for u in reachable:
+        for edge in graph.adjacency[u]:
+            if edge.is_reverse:
+                continue
+            if edge.to in reachable:
+                continue
+            cut_edges.append(MinCutEdge(u=u, v=edge.to, capacity=edge.original_cap))
+            cut_capacity += edge.original_cap
+
+    return reachable, cut_edges, cut_capacity

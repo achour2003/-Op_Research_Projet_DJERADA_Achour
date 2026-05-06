@@ -1,0 +1,126 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{hyperref}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+
+\title{Rapport Complet : Algorithmes de Flot Maximal et Co\^ut Minimal}
+\author{Achour DJERADA}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Introduction et Objectif du Projet}
+Ce projet impl\'emente une biblioth\`eque compl\`ete de r\'esolution de probl\`emes classiques de la recherche op\'erationnelle et de l'optimisation dans les graphes :
+\begin{itemize}
+    \item \textbf{Flot maximal} : faire transiter un maximum d'unit\'es de la source au puits.
+    \item \textbf{Flot de co\^ut minimal} : envoyer ce flot selon les chemins les moins chers.
+    \item \textbf{D\'etection de cycles de co\^ut n\'egatif} dans le r\'esiduel.
+\end{itemize}
+Contrainte : \textbf{aucune librairie de flots} (type NetworkX) n'est utilis\'ee. Tout est cod\'e \`a la main.
+
+\section{Format d'Entr\'ee et Sorties Attendues}
+\subsection{Format d'entr\'ee}
+Le fichier d'entr\'ee commence par une ligne :
+\begin{verbatim}
+#nodes #arcs s t
+\end{verbatim}
+Puis \texttt{\#arcs} lignes de la forme :
+\begin{verbatim}
+u v capacite cout_unitaire
+\end{verbatim}
+Contraintes : \texttt{\#nodes > 0}, \texttt{\#arcs >= 0}, \texttt{0 <= s,t < \#nodes}, \texttt{capacite >= 0}.
+
+\subsection{Sorties}
+Le programme affiche :
+\begin{itemize}
+    \item La valeur du flot maximal.
+    \item La valeur du flot sur chaque arc (flot/capacit\'e).
+    \item La min cut : l'ensemble $S$, les arcs de coupe et la capacit\'e totale.
+    \item Le r\'esultat min-cost max-flow via Bellman-Ford et via Dijkstra+potentiels.
+    \item La pr\'esence ou non d'un cycle de co\^ut n\'egatif r\'esiduel.
+\end{itemize}
+
+\section{Structure de Donn\'ees : Le Graphe R\'esiduel (\texttt{src/graph.py})}
+Le graphe r\'esiduel est au coeur du projet. Chaque arc original $u \to v$ a un arc inverse $v \to u$ de capacit\'e initiale nulle et de co\^ut n\'egatif.
+
+\subsection{L'objet \texttt{Edge}}
+\begin{verbatim}
+@dataclass
+class Edge:
+    to: int
+    rev: int
+    cap: int
+    cost: int
+    original_cap: int
+    is_reverse: bool
+\end{verbatim}
+\texttt{rev} pointe vers l'arc inverse dans la liste d'adjacence, ce qui permet les mises \`a jour en $\mathcal{O}(1)$ lors des augmentations de flot.
+
+\subsection{Pourquoi les listes d'adjacence ?}
+Les r\'eseaux sont souvent creux ($E \ll V^2$). Les listes d'adjacence permettent un parcours local en $\mathcal{O}(\deg(u))$ et une m\'emoire en $\mathcal{O}(V+E)$.
+
+\section{Algorithmes et Complexit\'es}
+\subsection{Flot Maximal : Edmonds-Karp (\texttt{src/max\_flow.py})}
+On utilise une BFS pour trouver un chemin augmentant minimal en nombre d'ar\^etes.
+\begin{itemize}
+    \item BFS : $\mathcal{O}(E)$.
+    \item Nombre d'it\'erations : $\mathcal{O}(V \cdot E)$.
+    \item Complexit\'e totale : $\mathcal{O}(V \cdot E^2)$.
+\end{itemize}
+
+\subsection{Min Cut}
+Apr\`es le flot maximal, la min cut est obtenue en faisant une BFS dans le r\'esiduel :
+$S$ est l'ensemble des sommets atteignables depuis la source, et les arcs de coupe sont les arcs originaux $u \in S, v \notin S$.
+\begin{itemize}
+    \item Complexit\'e : $\mathcal{O}(V+E)$.
+\end{itemize}
+
+\subsection{Min-Cost Max-Flow par Bellman-Ford (\texttt{src/min\_cost\_flow.py})}
+Les arcs inverses induisent des co\^uts n\'egatifs, d'o\`u l'usage de Bellman-Ford.
+\begin{itemize}
+    \item Complexit\'e : $\mathcal{O}(F \cdot V \cdot E)$.
+\end{itemize}
+
+\subsection{Min-Cost Max-Flow avec Dijkstra + Potentiels}
+On calcule un potentiel initial via Bellman-Ford, puis on ex\'ecute Dijkstra sur les co\^uts r\'eduits $c'(u,v) = c(u,v) + \pi(u) - \pi(v)$.
+\begin{itemize}
+    \item Dijkstra : $\mathcal{O}(E \log V)$.
+    \item Complexit\'e totale : $\mathcal{O}(V \cdot E + F \cdot E \log V)$.
+\end{itemize}
+
+\subsection{D\'etection de cycle n\'egatif (\texttt{src/cycle\_detection.py})}
+On applique Bellman-Ford avec distances initiales \`a 0 (super-source implicite).
+\begin{itemize}
+    \item Complexit\'e : $\mathcal{O}(V \cdot E)$.
+\end{itemize}
+
+\section{Tests}
+Les tests automatis\'es sont lanc\'es via :
+\begin{verbatim}
+python tests/run_tests.py
+\end{verbatim}
+Ils couvrent : flot max, min-cost, cycle n\'egatif, labels Graphviz, et min cut.
+
+\section{Exemple d'Ex\'ecution}
+Commande :
+\begin{verbatim}
+python src/main.py data/exemple_entree.txt
+\end{verbatim}
+Sorties attendues : flot maximal, min cut, min-cost (Bellman-Ford / Dijkstra), cycle n\'egatif r\'esiduel.
+
+\section{Conclusion}
+La structure r\'esiduelle avec arcs inverses et index crois\'es offre des mises \`a jour rapides et un socle correct pour les algorithmes de flot. Le projet respecte les contraintes et fournit des r\'esultats reproductibles.
+
+\section{Bibliographie}
+\begin{enumerate}
+    \item Ahuja, R. K., Magnanti, T. L., \& Orlin, J. B. (1993). \textit{Network Flows: Theory, Algorithms, and Applications}. Prentice Hall.
+    \item Cormen, T. H., Leiserson, C. E., Rivest, R. L., \& Stein, C. (2009). \textit{Introduction to Algorithms} (3rd ed.). MIT Press.
+    \item Tarjan, R. E. (1983). \textit{Data Structures and Network Algorithms}. SIAM.
+\end{enumerate}
+
+\end{document}

@@ -97,6 +97,7 @@ Le programme affiche notamment:
 - informations de parsing
 - valeur du flot maximal
 - flot final par arc
+- min cut (ensemble S, arcs de coupe, capacite totale)
 - resultat Min-Cost (Bellman-Ford)
 - resultat Min-Cost (Dijkstra + potentiels)
 - verification d'egalite entre les deux methodes
@@ -118,10 +119,12 @@ Tests couverts:
 - test_negative_costs_case
 - test_negative_cycle_detection
 - test_dot_generation_and_labels
+- test_min_cut_case (inclus dans test_small_manual_graph)
 
 ## 6. Algorithmes et complexites
 
 - Flot max (Edmonds-Karp): O(V E^2)
+- Min cut apres flot max: O(V + E)
 - Min-Cost Max-Flow (Bellman-Ford): O(F V E)
 - Min-Cost Max-Flow (Dijkstra + potentiels): O(F E log V) apres initialisation
 - Detection de cycle negatif (Bellman-Ford): O(V E)
@@ -164,7 +167,8 @@ ou, sous Windows sans PATH:
 
 ## 9. Documentation complementaire
 
-- Rapport detaille: docs/rapport.md
+- Rapport detaille (PDF): docs/rapport.pdf
+- Source LaTeX du rapport: docs/rapport.tex
 
 ## 10. Lien du depot
 

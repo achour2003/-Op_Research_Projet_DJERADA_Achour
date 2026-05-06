@@ -10,7 +10,7 @@ if str(SRC) not in sys.path:
 from cycle_detection import has_negative_cycle
 from graph import build_residual_graph
 from input_parser import read_input_data
-from max_flow import ford_fulkerson_max_flow
+from max_flow import ford_fulkerson_max_flow, min_cut_from_residual
 from min_cost_flow import min_cost_max_flow_bellman_ford, min_cost_max_flow_dijkstra
 from visualization import verify_dot_labels, write_dot_file
 
@@ -24,6 +24,13 @@ def test_small_manual_graph() -> None:
     graph = build_residual_graph(parsed)
     max_flow = ford_fulkerson_max_flow(graph, parsed.header.source, parsed.header.sink)
     assert max_flow == 5, f"max_flow attendu=5, obtenu={max_flow}"
+
+    reachable, cut_edges, cut_capacity = min_cut_from_residual(graph, parsed.header.source)
+    assert cut_capacity == max_flow, (
+        f"min_cut_capacity attendu={max_flow}, obtenu={cut_capacity}"
+    )
+    assert reachable, "min_cut_S ne doit pas etre vide"
+    assert cut_edges, "min_cut_edges ne doit pas etre vide"
 
 
 def test_no_path_case() -> None:
