@@ -1,0 +1,94 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{hyperref}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+
+\title{Rapport Détaillé : Algorithmes de Flot Maximal et Coût Minimal}
+\author{Achour DJERADA}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Introduction et Objectif du Projet}
+Ce projet implémente une bibliothèque complète de résolution de problèmes classiques de la recherche opérationnelle et de l'optimisation dans les graphes :
+\begin{itemize}
+    \item \textbf{Le problème du flot maximal} (faire transiter un maximum d'unités de la source au puits).
+    \item \textbf{Le problème du flot de coût minimal} (envoyer ce flot selon les chemins les moins chers).
+    \item \textbf{La détection de cycles de coût négatif} (qui risqueraient de faire diverger les solveurs de coût minimal).
+\end{itemize}
+Pour y parvenir de manière optimale, tout le socle du projet repose sur une structure de \textbf{graphe résiduel}.
+
+\section{Structure de Données : Le Graphe Résiduel (\texttt{src/graph.py})}
+C'est la pièce maîtresse du projet. Dans les algorithmes de flot, on ne se contente pas de traverser les arcs existants : il faut pouvoir \textbf{annuler ou rediriger un flot déjà envoyé}. C'est le rôle des arcs résiduels.
+
+\subsection{L'objet \texttt{Edge}}
+Chaque arc est défini ainsi grâce aux \texttt{dataclasses} de Python :
+\begin{verbatim}
+@dataclass
+class Edge:
+    to: int           # Sommet de destination
+    rev: int          # Indice de l'arc inverse dans la liste de destination
+    cap: int          # Capacité (résiduelle) de l'arc
+    cost: int         # Coût unitaire de l'arc
+    original_cap: int # Sauvegarde de la capacité pour générer la sortie
+    is_reverse: bool  # Différencie les arcs d'origine des virtuels
+\end{verbatim}
+
+\subsection{Pourquoi cette implémentation ? Les listes d'adjacence couplées (\texttt{rev})}
+Le graphe conserve ses arcs dans une liste de listes \texttt{list[list[Edge]]} (\texttt{adjacency[u]}).
+\begin{enumerate}
+    \item \textbf{Listes d'adjacence vs Matrice d'adjacence} : Les graphes réseaux sont souvent creux ($E \ll V^2$). Les listes d'adjacence permettent d'itérer sur les voisins en un temps proportionnel au degré du sommet $\mathcal{O}(\text{deg}(u))$ au lieu d'un parcours linéaire lent en $\mathcal{O}(V)$ de la matrice.
+    \item \textbf{L'astuce de l'indice \texttt{rev}} : Quand on crée un arc de $u \to v$ avec une capacité $C$, on crée silencieusement un arc inverse de $v \to u$ de capacité $0$ et de coût $-cost$. L'attribut \texttt{rev} stocke l'indice de cet arc jumeau.
+    \textbf{Avantage immédiat en complexité} : Lorsqu'un algorithme pousse $\Delta$ flot sur $u \to v$, il réduit sa capacité de $\Delta$ et augmente la capacité de l'arc inverse de $\Delta$ en $\mathcal{O}(1)$ (\texttt{reverse.cap += pushed\_flow}). Sans cet attribut \texttt{rev}, il faudrait chercher l'arc inverse dans la liste des voisins de $v$ en $\mathcal{O}(\text{deg}(v))$.
+\end{enumerate}
+
+\section{Algorithmes et Complexités Théoriques}
+\subsection{Flot Maximal : Algorithme d'Edmonds-Karp (\texttt{src/max\_flow.py})}
+La fonction \texttt{ford\_fulkerson\_max\_flow} porte le nom académique générique, mais elle implémente en réalité \textbf{Edmonds-Karp} car elle utilise une recherche en largeur (BFS) :
+\begin{itemize}
+    \item \textbf{Principe} : La fonction \texttt{find\_augmenting\_path} effectue un parcours en largeur (BFS) depuis la source pour trouver le chemin le plus court (en nombre d'arcs, sans tenir compte du coût) jusqu'au puits, avec des arcs ayant une capacité résiduelle $> 0$.
+    \item \textbf{Mise à jour} : \texttt{apply\_augmenting\_path} met à jour les capacités le long du chemin en $\mathcal{O}(V)$.
+    \item \textbf{Complexité} : Chaque BFS prend $\mathcal{O}(E)$. Dans un réseau, le nombre maximal d'augmentations avec des chemins les plus courts est borné par $\mathcal{O}(V \cdot E)$.
+    \item \textbf{Complexité finale} : $\mathcal{O}(V \cdot E^2)$ ce qui assure l'arrêt rapide même sur des valeurs de flots irrationnelles ou très grandes.
+\end{itemize}
+
+\subsection{Flot de Coût Minimal (\texttt{src/min\_cost\_flow.py})}
+Ce problème est résolu par la méthode des \textit{chemins les plus courts successifs} (Successive Shortest Path algorithm).
+
+\subsubsection*{A. Avec Bellman-Ford}
+\begin{itemize}
+    \item \textbf{Principe} : Dans le graphe résiduel, la création des arcs inverses génère des coûts négatifs. L'algorithme de Dijkstra classique ne peut donc pas être utilisé directement. La fonction \texttt{min\_cost\_max\_flow\_bellman\_ford} lance donc une recherche de plus court chemin via \textbf{Bellman-Ford} à chaque itération.
+    \item \textbf{Complexité} : Le calcul de Bellman-Ford coûte $\mathcal{O}(V \cdot E)$. S'il y a $F$ unités de flot total à envoyer, la méthode est pseudo-polynomiale et tourne en $\mathcal{O}(F \cdot V \cdot E)$.
+\end{itemize}
+
+\subsubsection*{B. Avec Dijkstra et ajustement par Potentiels (Algorithme de Johnson)}
+\begin{itemize}
+    \item \textbf{Principe} : Pour contourner la lenteur de Bellman-Ford, la fonction \texttt{shortest\_path\_dijkstra\_with\_potentials} utilise un système de prix (les potentiels $\pi$).
+    On exécute Bellman-Ford \textbf{une seule fois} pour trouver les distances initiales de la source $\pi(v)$.
+    On modifie mathématiquement tous les coûts : $c'(u,v) = c(u,v) + \pi(u) - \pi(v) \ge 0$. Tous les coûts modifiés étant dorénavant positifs, on peut enchaîner les recherches de chemins via \textbf{Dijkstra}.
+    \item \textbf{Complexité de Dijkstra avec tas minimum} : $\mathcal{O}(E \log V)$.
+    \item \textbf{Complexité finale} : $\mathcal{O}(V \cdot E)$ (initialisation) + $F$ itérations de Dijkstra, donnant $\mathcal{O}(V \cdot E + F \cdot E \log V)$.
+\end{itemize}
+
+\subsection{Détection de Cycle Négatif (\texttt{src/cycle\_detection.py})}
+\begin{itemize}
+    \item \textbf{Principe} : La fonction \texttt{has\_negative\_cycle} simule la création d'un "Super Nœud" lié à tous les nœuds par des arêtes de coût 0 (soit $dist = 0$ pour tous). S'il y a une relaxation valide possible après exactement $V-1$ boucles de relaxation, alors le graphe contient un cycle de poids négatif.
+    \item \textbf{Complexité} : $\mathcal{O}(V \cdot E)$.
+\end{itemize}
+
+\section{Conclusion}
+L'architecture de l'application est pensée pour éviter des duplications de code et limiter l'empreinte mémoire, centralisée autour de ce graphe résiduel partagé. La pertinence de la structure de données \texttt{Edge} par référence croisée indexée permet de tenir des temps de calcul théoriques respectables tout en assurant l'extensibilité du code.
+
+\section{Bibliographie}
+\begin{enumerate}
+    \item \textbf{Ahuja, R. K., Magnanti, T. L., \& Orlin, J. B. (1993)}. \textit{Network Flows: Theory, Algorithms, and Applications}. Prentice Hall.
+    \item \textbf{Cormen, T. H., Leiserson, C. E., Rivest, R. L., \& Stein, C. (2009)}. \textit{Introduction to Algorithms} (3rd ed.). MIT Press.
+    \item \textbf{Tarjan, R. E. (1983)}. \textit{Data Structures and Network Algorithms}. SIAM.
+\end{enumerate}
+
+\end{document}

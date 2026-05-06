@@ -1,0 +1,20 @@
+digraph G {
+  rankdir=LR;
+  node [shape=circle];
+  0 [label="0"];
+  1 [label="1"];
+  2 [label="2"];
+  3 [label="3"];
+  4 [color="blue", label="t"];
+  5 [color="green", label="s"];
+  5 -> 0 [label="40,2"];
+  0 -> 1 [label="15,4"];
+  0 -> 2 [label="8,4"];
+  0 -> 3 [label="5,8"];
+  1 -> 2 [label="20,2"];
+  1 -> 3 [label="4,2"];
+  1 -> 4 [label="10,6"];
+  2 -> 3 [label="15,1"];
+  2 -> 4 [label="4,3"];
+  3 -> 4 [label="20,2"];
+}
