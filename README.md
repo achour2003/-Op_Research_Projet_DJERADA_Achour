@@ -165,7 +165,6 @@ ou, sous Windows sans PATH:
 ## 9. Documentation complementaire
 
 - Rapport detaille: docs/rapport.md
-- Support de presentation: docs/soutenance.md
 
 ## 10. Lien du depot
 
